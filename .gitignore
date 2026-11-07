@@ -160,3 +160,7 @@ cython_debug/
 # VS Code
 /.vscode
 dataset
+
+
+results
+.Dockerfile*.stamp

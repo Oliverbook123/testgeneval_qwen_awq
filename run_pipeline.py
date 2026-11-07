@@ -3,6 +3,11 @@
 import argparse
 import os
 import subprocess
+import sys
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from swebench_docker.constants import VALID_K
 
@@ -37,9 +42,15 @@ if __name__ == "__main__":
             "mistralai/Codestral-22B-v0.1",
             "google/gemma-2-9b-it",
             "google/gemma-2-27b-it",
+            "Qwen/Qwen2.5-Coder-7B-Instruct-AWQ",
             "baseline",
         ],
         required=True,
+    )
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        help="Optional local model directory; --model still identifies the model configuration.",
     )
     parser.add_argument(
         "--num_samples_full",
@@ -146,7 +157,7 @@ if __name__ == "__main__":
             model_extra_cmd += ["--skip_completion"] if args.skip_completion else []
             # Run model prediction
             model_cmd = [
-                "python",
+                sys.executable,
                 "-m",
                 "inference.api.run_api",
                 "--model_name_or_path",
@@ -160,19 +171,18 @@ if __name__ == "__main__":
                 "--num_samples_completion",
                 str(args.num_samples_completion),
             ] + model_extra_cmd
-            subprocess.run(model_cmd)
+            subprocess.run(model_cmd, check=True)
         elif args.model != "baseline":
             model_extra_cmd = ["--skip_full"] if args.skip_full else []
             model_extra_cmd += ["--skip_completion"] if args.skip_completion else []
             model_cmd = [
-                "python",
+                sys.executable,
                 "-m",
                 "inference.huggingface.run_huggingface",
                 "--model_name_or_path",
-                args.model,
+                args.model_path or args.model,
                 "--dataset_name_or_path",
                 dataset_name_or_path,
-                "--use_auth_token",
                 "--output_dir",
                 pred_dir,
                 "--num_samples_completion",
@@ -182,8 +192,10 @@ if __name__ == "__main__":
                 "--temperature",
                 str(args.temperature),
             ]
+            if args.model_path:
+                model_cmd += ["--local_model_name", model_suf]
             model_cmd += model_extra_cmd
-            subprocess.run(model_cmd)
+            subprocess.run(model_cmd, check=True)
 
     # Run evaluation
     extra_cmd = ["--skip_existing"] if not args.rerun_eval else []
@@ -192,7 +204,7 @@ if __name__ == "__main__":
     )
     if args.model == "baseline":
         eval_cmd = [
-            "python",
+            sys.executable,
             "run_evaluation_baseline.py",
             "--log_dir",
             log_dir,
@@ -204,7 +216,7 @@ if __name__ == "__main__":
             args.namespace,
         ] + extra_cmd
         report_cmd = [
-            "python",
+            sys.executable,
             "generate_report_baseline.py",
             "--log_dir",
             log_dir,
@@ -215,7 +227,7 @@ if __name__ == "__main__":
         ]
     else:
         eval_cmd = [
-            "python",
+            sys.executable,
             "run_evaluation.py",
             "--predictions_path",
             preds_file,
@@ -229,7 +241,7 @@ if __name__ == "__main__":
             args.namespace,
         ] + extra_cmd
         report_cmd = [
-            "python",
+            sys.executable,
             "generate_report.py",
             "--predictions_path",
             preds_file,
@@ -241,5 +253,5 @@ if __name__ == "__main__":
             dataset_name_or_path,
         ]
 
-    subprocess.run(eval_cmd)
-    subprocess.run(report_cmd)
+    subprocess.run(eval_cmd, check=True)
+    subprocess.run(report_cmd, check=True)

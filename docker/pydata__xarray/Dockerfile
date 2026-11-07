@@ -4,8 +4,12 @@ FROM aorwall/swe-bench-conda:bookworm-slim
 
 
 
-RUN git clone https://github.com/swe-bench/pydata__xarray.git
+RUN git -c http.version=HTTP/1.1 \
+    -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 clone --progress \
+    https://gitee.com/mirrors/xarray.git pydata__xarray
 
 WORKDIR /home/swe-bench/pydata__xarray
 
 ENV REPO_DIR=/home/swe-bench/pydata__xarray
+
+COPY --chown=swe-bench:swe-bench docker/condarc /home/swe-bench/.condarc

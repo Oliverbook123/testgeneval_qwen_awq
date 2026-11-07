@@ -5,6 +5,10 @@ import os
 import re
 import subprocess
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 # Function to parse the Makefile and extract image information
 def parse_makefile(makefile_path):
@@ -27,14 +31,25 @@ def parse_makefile(makefile_path):
 
 
 def pull_images(images):
-    for image, _ in images[:2]:
+    registry_mirror = os.environ.get("DOCKER_REGISTRY_MIRROR", "").rstrip("/")
+    for image, _ in images:
         try:
-            # Build the image
             image_updated = image.replace("aorwall/", "kdjain/")
-            subprocess.run(["docker", "pull", image_updated], check=True)
+            candidates = (
+                [f"{registry_mirror}/{image_updated}", image_updated]
+                if registry_mirror
+                else [image_updated]
+            )
+            for candidate in candidates:
+                try:
+                    subprocess.run(["docker", "pull", candidate], check=True)
+                    break
+                except subprocess.CalledProcessError:
+                    if candidate == candidates[-1]:
+                        raise
 
         except subprocess.CalledProcessError as e:
-            print(f"Error building, pushing, or removing image: {image}")
+            print(f"Error pulling image: {image}")
             print(e)
             continue
 

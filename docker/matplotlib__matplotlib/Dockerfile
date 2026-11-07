@@ -13,8 +13,12 @@ RUN apt-get update && \
 USER swe-bench
 
 
-RUN git clone https://github.com/swe-bench/matplotlib__matplotlib.git
+RUN git -c http.version=HTTP/1.1 \
+    -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 clone --progress \
+    https://gitee.com/mirrors/matplotlib.git matplotlib__matplotlib
 
 WORKDIR /home/swe-bench/matplotlib__matplotlib
 
 ENV REPO_DIR=/home/swe-bench/matplotlib__matplotlib
+
+COPY --chown=swe-bench:swe-bench docker/condarc /home/swe-bench/.condarc

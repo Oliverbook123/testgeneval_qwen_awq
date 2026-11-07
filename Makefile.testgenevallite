@@ -1,3 +1,5 @@
+.NOTPARALLEL:
+
 all: \
 	docker/.Dockerfile.stamp \
 	docker/pyenv/.Dockerfile.stamp \
@@ -124,7 +126,7 @@ docker/django__django/4.1/.Dockerfile.stamp: docker/django__django/4.1/Dockerfil
 	touch docker/django__django/4.1/.Dockerfile.stamp
 
 docker/django__django/5.0/.Dockerfile.stamp: docker/django__django/5.0/Dockerfile docker/django__django/.Dockerfile.stamp docker/pyenv/.Dockerfile-pyenvs.stamp docker/.Dockerfile.stamp
-	docker build --network=host -t aorwall/swe-bench-django_django-testbed:5.0 -f docker/django__django/5.0/Dockerfile .
+	docker build --network=host --build-arg HTTP_PROXY --build-arg HTTPS_PROXY -t aorwall/swe-bench-django_django-testbed:5.0 -f docker/django__django/5.0/Dockerfile .
 	touch docker/django__django/5.0/.Dockerfile.stamp
 
 docker/django__django/4.0/.Dockerfile.stamp: docker/django__django/4.0/Dockerfile docker/django__django/.Dockerfile.stamp docker/pyenv/.Dockerfile-pyenvs.stamp docker/.Dockerfile.stamp
@@ -147,7 +149,7 @@ docker/django__django/3.2/.Dockerfile.stamp: docker/django__django/3.2/Dockerfil
 	docker build --network=host -t aorwall/swe-bench-django_django-testbed:3.2 -f docker/django__django/3.2/Dockerfile .
 	touch docker/django__django/3.2/.Dockerfile.stamp
 
-docker/sphinx-doc__sphinx/.Dockerfile.stamp: docker/sphinx-doc__sphinx/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp
+docker/sphinx-doc__sphinx/.Dockerfile.stamp: docker/sphinx-doc__sphinx/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp docker/condarc
 	docker build --network=host -t aorwall/swe-bench-sphinx-doc_sphinx:bookworm-slim -f docker/sphinx-doc__sphinx/Dockerfile .
 	touch docker/sphinx-doc__sphinx/.Dockerfile.stamp
 
@@ -299,7 +301,7 @@ docker/scikit-learn__scikit-learn/1.3/scikit-learn__scikit-learn-25500/.Dockerfi
 	docker build --network=host -t aorwall/swe-bench-scikit-learn_scikit-learn-instance:scikit-learn__scikit-learn-25500 -f docker/scikit-learn__scikit-learn/1.3/scikit-learn__scikit-learn-25500/Dockerfile .
 	touch docker/scikit-learn__scikit-learn/1.3/scikit-learn__scikit-learn-25500/.Dockerfile.stamp
 
-docker/sympy__sympy/.Dockerfile.stamp: docker/sympy__sympy/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp
+docker/sympy__sympy/.Dockerfile.stamp: docker/sympy__sympy/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp docker/condarc
 	docker build --network=host -t aorwall/swe-bench-sympy_sympy:bookworm-slim -f docker/sympy__sympy/Dockerfile .
 	touch docker/sympy__sympy/.Dockerfile.stamp
 
@@ -355,7 +357,7 @@ docker/sympy__sympy/1.13/.Dockerfile.stamp: docker/sympy__sympy/1.13/Dockerfile 
 	docker build --network=host -t aorwall/swe-bench-sympy_sympy-testbed:1.13 -f docker/sympy__sympy/1.13/Dockerfile .
 	touch docker/sympy__sympy/1.13/.Dockerfile.stamp
 
-docker/pytest-dev__pytest/.Dockerfile.stamp: docker/pytest-dev__pytest/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp
+docker/pytest-dev__pytest/.Dockerfile.stamp: docker/pytest-dev__pytest/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp docker/condarc
 	docker build --network=host -t aorwall/swe-bench-pytest-dev_pytest:bookworm-slim -f docker/pytest-dev__pytest/Dockerfile .
 	touch docker/pytest-dev__pytest/.Dockerfile.stamp
 
@@ -399,7 +401,7 @@ docker/pytest-dev__pytest/6.0/.Dockerfile.stamp: docker/pytest-dev__pytest/6.0/D
 	docker build --network=host -t aorwall/swe-bench-pytest-dev_pytest-testbed:6.0 -f docker/pytest-dev__pytest/6.0/Dockerfile .
 	touch docker/pytest-dev__pytest/6.0/.Dockerfile.stamp
 
-docker/matplotlib__matplotlib/.Dockerfile.stamp: docker/matplotlib__matplotlib/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp
+docker/matplotlib__matplotlib/.Dockerfile.stamp: docker/matplotlib__matplotlib/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp docker/condarc
 	docker build --network=host -t aorwall/swe-bench-matplotlib_matplotlib:bookworm-slim -f docker/matplotlib__matplotlib/Dockerfile .
 	touch docker/matplotlib__matplotlib/.Dockerfile.stamp
 
@@ -419,7 +421,7 @@ docker/matplotlib__matplotlib/3.7/.Dockerfile.stamp: docker/matplotlib__matplotl
 	docker build --network=host -t aorwall/swe-bench-matplotlib_matplotlib-testbed:3.7 -f docker/matplotlib__matplotlib/3.7/Dockerfile .
 	touch docker/matplotlib__matplotlib/3.7/.Dockerfile.stamp
 
-docker/astropy__astropy/.Dockerfile.stamp: docker/astropy__astropy/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp
+docker/astropy__astropy/.Dockerfile.stamp: docker/astropy__astropy/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp docker/condarc
 	docker build --network=host -t aorwall/swe-bench-astropy_astropy:bookworm-slim -f docker/astropy__astropy/Dockerfile .
 	touch docker/astropy__astropy/.Dockerfile.stamp
 
@@ -439,7 +441,7 @@ docker/astropy__astropy/5.2/.Dockerfile.stamp: docker/astropy__astropy/5.2/Docke
 	docker build --network=host -t aorwall/swe-bench-astropy_astropy-testbed:5.2 -f docker/astropy__astropy/5.2/Dockerfile .
 	touch docker/astropy__astropy/5.2/.Dockerfile.stamp
 
-docker/pydata__xarray/.Dockerfile.stamp: docker/pydata__xarray/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp
+docker/pydata__xarray/.Dockerfile.stamp: docker/pydata__xarray/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp docker/condarc
 	docker build --network=host -t aorwall/swe-bench-pydata_xarray:bookworm-slim -f docker/pydata__xarray/Dockerfile .
 	touch docker/pydata__xarray/.Dockerfile.stamp
 
@@ -447,7 +449,7 @@ docker/pydata__xarray/0.12/.Dockerfile.stamp: docker/pydata__xarray/0.12/Dockerf
 	docker build --network=host -t aorwall/swe-bench-pydata_xarray-testbed:0.12 -f docker/pydata__xarray/0.12/Dockerfile .
 	touch docker/pydata__xarray/0.12/.Dockerfile.stamp
 
-docker/mwaskom__seaborn/.Dockerfile.stamp: docker/mwaskom__seaborn/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp
+docker/mwaskom__seaborn/.Dockerfile.stamp: docker/mwaskom__seaborn/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp docker/condarc
 	docker build --network=host -t aorwall/swe-bench-mwaskom_seaborn:bookworm-slim -f docker/mwaskom__seaborn/Dockerfile .
 	touch docker/mwaskom__seaborn/.Dockerfile.stamp
 
@@ -483,7 +485,7 @@ docker/psf__requests/2.10/.Dockerfile.stamp: docker/psf__requests/2.10/Dockerfil
 	docker build --network=host -t aorwall/swe-bench-psf_requests-testbed:2.10 -f docker/psf__requests/2.10/Dockerfile .
 	touch docker/psf__requests/2.10/.Dockerfile.stamp
 
-docker/pylint-dev__pylint/.Dockerfile.stamp: docker/pylint-dev__pylint/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp
+docker/pylint-dev__pylint/.Dockerfile.stamp: docker/pylint-dev__pylint/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp docker/condarc
 	docker build --network=host -t aorwall/swe-bench-pylint-dev_pylint:bookworm-slim -f docker/pylint-dev__pylint/Dockerfile .
 	touch docker/pylint-dev__pylint/.Dockerfile.stamp
 
@@ -499,7 +501,7 @@ docker/pylint-dev__pylint/2.13/.Dockerfile.stamp: docker/pylint-dev__pylint/2.13
 	docker build --network=host -t aorwall/swe-bench-pylint-dev_pylint-testbed:2.13 -f docker/pylint-dev__pylint/2.13/Dockerfile .
 	touch docker/pylint-dev__pylint/2.13/.Dockerfile.stamp
 
-docker/pallets__flask/.Dockerfile.stamp: docker/pallets__flask/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp
+docker/pallets__flask/.Dockerfile.stamp: docker/pallets__flask/Dockerfile docker/pyenv/.Dockerfile.stamp docker/.Dockerfile.stamp docker/condarc
 	docker build --network=host -t aorwall/swe-bench-pallets_flask:bookworm-slim -f docker/pallets__flask/Dockerfile .
 	touch docker/pallets__flask/.Dockerfile.stamp
 

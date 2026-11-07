@@ -12,7 +12,28 @@ RUN pyenv rehash && \
 
 WORKDIR /opt/django__django
 
+# Keep the inherited history for evaluation and fetch the missing commit directly
+# from the official repository without cloning the entire repository again.
+RUN set -eu; \
+    git remote set-url origin https://github.com/django/django.git; \
+    attempt=1; \
+    while ! git -c http.version=HTTP/1.1 \
+        -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 \
+        fetch --depth=1 --no-tags --no-recurse-submodules origin \
+        4a72da71001f154ea60906a2f74898d32b7322a7; do \
+        if [ "$attempt" -ge 3 ]; then \
+            echo "Failed to fetch Django 5.0 commit from official GitHub after 3 attempts" >&2; \
+            exit 1; \
+        fi; \
+        attempt=$((attempt + 1)); \
+        echo "Retrying official GitHub fetch (attempt ${attempt}/3)" >&2; \
+        sleep 5; \
+    done
+
 RUN git -c advice.detachedHead=false checkout 4a72da71001f154ea60906a2f74898d32b7322a7
+
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
 
 COPY docker/django__django/5.0/requirements.txt .
 
@@ -30,5 +51,27 @@ WORKDIR /opt
 
 COPY swebench_docker swebench_docker
 COPY --chmod=0755 docker/pyenv/entrypoint.sh .
+
+# Keep every Django 5.0 base commit used by the Lite evaluation available.
+RUN set -eu; \
+    for revision in \
+        191f6a9a4586b5e5f79f4f42f190e7ad4bbacc84 \
+        4a72da71001f154ea60906a2f74898d32b7322a7 \
+        b7a17b0ea0a2061bae752a3a2292007d41825814 \
+        bd366ca2aeffa869b7dbc0b0aa01caea75e6dc31 \
+        fce90950bef348803fa7cc3e6bc65f4bce429b82; do \
+        if git -C /opt/django__django cat-file -e "${revision}^{commit}" 2>/dev/null; then \
+            continue; \
+        fi; \
+        attempt=1; \
+        while ! git -C /opt/django__django -c http.version=HTTP/1.1 \
+            -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 \
+            fetch --depth=1 --no-tags --no-recurse-submodules \
+            https://github.com/django/django.git "$revision"; do \
+            if [ "$attempt" -ge 3 ]; then exit 1; fi; \
+            attempt=$((attempt + 1)); \
+            sleep 5; \
+        done; \
+    done
 
 ENTRYPOINT ["./entrypoint.sh"]

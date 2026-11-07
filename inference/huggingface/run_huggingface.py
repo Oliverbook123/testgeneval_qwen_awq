@@ -18,6 +18,7 @@ from inference.configs.codestral_prompt import CodestralPrompt
 from inference.configs.gemma2_prompt import Gemma2Prompt
 from inference.configs.instruct_prompt import InstructPrompt
 from inference.configs.llama3_prompt import Llama3Prompt
+from inference.configs.qwen2_prompt import Qwen2Prompt
 from inference.huggingface.generator import Generator
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -104,6 +105,18 @@ MODEL_CONFIG = {
         "prompt_class": Llama3Prompt,
         "eager": True,
         "huggingface": False,
+    },
+    "Qwen2.5-Coder-7B-Instruct-AWQ": {
+        "tensor_parallel_size": 1,
+        "max_context_window": 32_768,
+        "prompt_class": Qwen2Prompt,
+        "eager": True,
+        "huggingface": False,
+        "cpu_offload_gb": 5,
+        "gpu_memory_utilization": 0.93,
+        "max_num_seqs": 5,
+        "max_num_batched_tokens": 512,
+        "enable_chunked_prefill": True,
     },
 }
 
@@ -203,6 +216,13 @@ def parse_args():
         default=1,
         help="Number of samples to generate full file.",
     )
+    parser.add_argument(
+        "--num_samples_full",
+        dest="num_samples_generation",
+        type=int,
+        help="Alias for --num_samples_generation.",
+        default=argparse.SUPPRESS,
+    )
 
     parser.add_argument(
         "--local_model_name", type=str, help="Name of local model.", default=""
@@ -272,7 +292,7 @@ def process_raw_output(raw_output, prompt_output, full_output, model_name_or_pat
         prompts = {}
         for line in prompt_lines:
             prompt_data = json.loads(line)
-            prompts[prompt_data["id"]] = prompt_data
+            prompts[(prompt_data["id"], prompt_data["setting"])] = prompt_data
 
         preds = [json.loads(line) for line in raw_lines]
 
@@ -289,7 +309,7 @@ def process_raw_output(raw_output, prompt_output, full_output, model_name_or_pat
                 }
 
             setting = pred["setting"]
-            prompt = prompts[data_id]["prompt"]
+            prompt = prompts[(data_id, setting)]["prompt"]
             pred_text = pred["pred"]
 
             id_mappings[data_id]["preds_prompts"][setting] = prompt
@@ -303,11 +323,16 @@ def process_raw_output(raw_output, prompt_output, full_output, model_name_or_pat
             print(json.dumps(data), file=full_file, flush=True)
 
 
-def truncate_prompts(dataset, tokenizer, max_tokens):
+def truncate_prompts(dataset, tokenizer, max_tokens, prompt_info=None):
     """Truncate prompts in the dataset to the last max_tokens"""
 
     def truncate(example):
         prompt = example["prompt"]
+        if prompt_info is not None and hasattr(prompt_info, "truncate_prompt"):
+            example["prompt"] = prompt_info.truncate_prompt(
+                prompt, tokenizer, max_tokens, example["setting"]
+            )
+            return example
         tokens = tokenizer.encode(prompt)
         if len(tokens) > max_tokens:
             truncated_tokens = tokens[-max_tokens:]
@@ -319,7 +344,7 @@ def truncate_prompts(dataset, tokenizer, max_tokens):
 
 def main():
     args = parse_args()
-    model_nickname = Path(args.model_name_or_path).name
+    model_nickname = args.local_model_name or Path(args.model_name_or_path).name
 
     model_config = (
         MODEL_CONFIG.get(model_nickname)
@@ -331,6 +356,8 @@ def main():
         model_config["max_context_window"] = args.context_size
 
     max_tokens = model_config["max_context_window"] - EPSILON
+    full_generation_tokens = min(8192, max_tokens)
+    full_prompt_tokens = model_config["max_context_window"] - full_generation_tokens
     tensor_parallel_size = model_config["tensor_parallel_size"]
     if tensor_parallel_size > 8:
         import ray
@@ -365,10 +392,16 @@ def main():
             model=args.model_name_or_path,
             dtype=args.precision,
             trust_remote_code=args.trust_remote_code,
-            gpu_memory_utilization=0.98,
+            gpu_memory_utilization=model_config.get("gpu_memory_utilization", 0.98),
             tensor_parallel_size=tensor_parallel_size,
             max_model_len=model_config["max_context_window"],
             enforce_eager=model_config["eager"],
+            cpu_offload_gb=model_config.get("cpu_offload_gb", 0),
+            **{
+                key: model_config[key]
+                for key in ("max_num_seqs", "max_num_batched_tokens", "enable_chunked_prefill")
+                if key in model_config
+            },
         )
 
     stop_token_ids = (
@@ -390,7 +423,7 @@ def main():
         dataset_nickname = Path(args.dataset_name_or_path).name
     else:
         dataset = load_dataset(args.dataset_name_or_path)
-        dataset_nickname = args.dataset_name_or_path
+        dataset_nickname = Path(args.dataset_name_or_path).name
 
     output_file = f"{model_nickname}__{dataset_nickname}__{args.temperature}__test"
 
@@ -403,6 +436,7 @@ def main():
     output_file = Path(args.output_dir, output_file + ".jsonl")
     output_file_raw = Path(args.output_dir, output_file_raw + ".jsonl")
     output_file_prompt = Path(args.output_dir, output_file_prompt + ".jsonl")
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     # Generate the prompt file if it doesn't exist
     dataset = prompt_info.add_prompts_to_dataset(
@@ -438,7 +472,9 @@ def main():
             for line in lines_full:
                 f.write(json.dumps(line) + "\n")
 
-    extract_prompts_from_raw_files([], output_file_raw, output_file_prompt)
+    # Preserve predictions and prompts written before an interrupted run.
+    output_file_raw.touch(exist_ok=True)
+    output_file_prompt.touch(exist_ok=True)
 
     if os.path.exists(output_file_raw):
         with open(output_file_raw, "r") as f:
@@ -478,18 +514,20 @@ def main():
         )
 
         if len(dataset_full) > 0 and not args.skip_full:
-            dataset_full = truncate_prompts(dataset_full, tokenizer, max_tokens)
+            dataset_full = truncate_prompts(
+                dataset_full, tokenizer, full_prompt_tokens, prompt_info=prompt_info
+            )
             generator.generate(
                 dataset_full,
                 prompt_info.postprocess_output,
                 True,
                 args.num_samples_generation,
-                8192,
+                full_generation_tokens,
                 stop_token_ids,
             )
         if len(dataset_completion) > 0 and not args.skip_completion:
             dataset_completion = truncate_prompts(
-                dataset_completion, tokenizer, max_tokens
+                dataset_completion, tokenizer, max_tokens, prompt_info=prompt_info
             )
             generator.generate(
                 dataset_completion,

@@ -4,8 +4,10 @@ FROM aorwall/swe-bench-conda:bookworm-slim
 
 
 
-RUN git clone https://github.com/swe-bench/pytest-dev__pytest.git
+RUN git clone https://gitclone.com/github.com/swe-bench/pytest-dev__pytest.git
 
 WORKDIR /home/swe-bench/pytest-dev__pytest
 
 ENV REPO_DIR=/home/swe-bench/pytest-dev__pytest
+
+COPY --chown=swe-bench:swe-bench docker/condarc /home/swe-bench/.condarc

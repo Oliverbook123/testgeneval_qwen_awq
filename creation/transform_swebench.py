@@ -147,7 +147,7 @@ def apply_patch(repo_path, patch_content):
 
 def process_repo(repo_data, repo_dir, id_curr, errors, is_train):
     repo_dir = os.path.join(repo_dir, repo_data["repo"].replace("/", "_"))
-    repo_url = f"https://github.com/{repo_data['repo']}.git"
+    repo_url = f"https://gitclone.com/github.com/{repo_data['repo']}.git"
     base_commit = repo_data["base_commit"]
     patch = repo_data["patch"]
     test_patch = repo_data["test_patch"]

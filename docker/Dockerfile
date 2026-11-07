@@ -1,9 +1,14 @@
 FROM debian:bookworm-slim
 
 ARG TARGETARCH
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+ENV PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
 
 # Install third party tools
-RUN apt-get update && \
+RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g; s|security.debian.org|mirrors.tuna.tsinghua.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && \
     apt-get install -y bash gcc git jq wget g++ make libffi-dev build-essential python3.11 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -19,9 +24,9 @@ USER swe-bench
 ENV PATH="/home/swe-bench/miniconda3/bin:${PATH}"
 
 RUN if [ "$TARGETARCH" = "amd64" ]; then \
-        wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py311_24.3.0-0-Linux-x86_64.sh -O ~/miniconda.sh; \
+        wget --quiet https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/Miniconda3-py311_24.3.0-0-Linux-x86_64.sh -O ~/miniconda.sh; \
     elif [ "$TARGETARCH" = "arm64" ]; then \
-        wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py311_24.3.0-0-Linux-aarch64.sh -O ~/miniconda.sh; \
+        wget --quiet https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/Miniconda3-py311_24.3.0-0-Linux-aarch64.sh -O ~/miniconda.sh; \
     fi && \
     mkdir ~/.conda && \
     bash miniconda.sh -b && \

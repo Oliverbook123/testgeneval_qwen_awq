@@ -8,5 +8,10 @@ COPY --from=aorwall/swe-bench-pyenvs:bookworm-slim /opt/pyenv/versions/3.11.9 /o
 
 WORKDIR /opt
 
-RUN git clone https://github.com/swe-bench/scikit-learn__scikit-learn.git
+RUN git -c http.version=HTTP/1.1 \
+    -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 clone --progress \
+    https://gitee.com/mirrors/scikit-learn.git scikit-learn__scikit-learn
 ENV REPO_DIR=/opt/scikit-learn__scikit-learn
+
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}

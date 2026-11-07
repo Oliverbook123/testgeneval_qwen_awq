@@ -4,7 +4,7 @@ FROM aorwall/swe-bench-conda:bookworm-slim
 
 
 
-RUN git clone https://github.com/swe-bench/pylint-dev__astroid.git
+RUN git clone https://gitclone.com/github.com/swe-bench/pylint-dev__astroid.git
 
 WORKDIR /home/swe-bench/pylint-dev__astroid
 

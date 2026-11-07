@@ -4,6 +4,9 @@ FROM aorwall/swe-bench-scikit-learn_scikit-learn-testbed:1.3
 
 WORKDIR /opt/scikit-learn__scikit-learn
 
+# Match the historical numpy.distutils and editable build requirements.
+RUN python -m pip install pip==24.3.1 setuptools==59.8.0 wheel==0.43.0 Cython==0.29.36
+
 RUN git -c advice.detachedHead=false checkout 4db04923a754b6a2defa1b172f55d492b85d165e
 
 RUN pip install -v --no-use-pep517 --no-build-isolation -e .

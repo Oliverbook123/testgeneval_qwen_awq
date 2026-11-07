@@ -7,11 +7,12 @@ RUN git -c advice.detachedHead=false checkout 848c8fa21332abd66b44efe3cb48b72377
 RUN conda create -n astropy__astropy__1.3 python=3.9  -y
 SHELL ["conda", "run", "-n", "astropy__astropy__1.3", "/bin/bash", "-c"]
 
-RUN pip install setuptools==68.0.0
+RUN pip install pip==24.3.1 setuptools==68.0.0 wheel==0.41.3 \
+    cython==0.29.37 jinja2==3.1.6
 
 RUN pip install attrs==23.1.0 exceptiongroup==1.1.3 execnet==2.0.2 hypothesis==6.82.6 iniconfig==2.0.0 numpy==1.23.4 packaging==23.1 pluggy==1.3.0 psutil==5.9.5 pyerfa==2.0.0.3 pytest-arraydiff==0.5.0 pytest-astropy-header==0.2.2 pytest-astropy==0.10.0 pytest-cov==4.1.0 pytest-doctestplus==1.0.0 pytest-filter-subpackage==0.1.2 pytest-mock==3.11.1 pytest-openfiles==0.5.0 pytest-remotedata==0.4.0 pytest-xdist==3.3.1 pytest==7.4.0 PyYAML==6.0.1 sortedcontainers==2.4.0 tomli==2.0.1
 
-RUN pip install -e .[test]
+RUN pip install --no-use-pep517 --no-build-isolation -e .[test]
 RUN pip install coverage cosmic-ray
 
 RUN git checkout 848c8fa21332abd66b44efe3cb48b72377fb32cc .

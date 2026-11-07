@@ -4,8 +4,12 @@ FROM aorwall/swe-bench-conda:bookworm-slim
 
 
 
-RUN git clone https://github.com/swe-bench/pylint-dev__pylint.git
+RUN git -c http.version=HTTP/1.1 \
+    -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 clone --progress \
+    https://gitcode.com/gh_mirrors/pyl/pylint.git pylint-dev__pylint
 
 WORKDIR /home/swe-bench/pylint-dev__pylint
 
 ENV REPO_DIR=/home/swe-bench/pylint-dev__pylint
+
+COPY --chown=swe-bench:swe-bench docker/condarc /home/swe-bench/.condarc

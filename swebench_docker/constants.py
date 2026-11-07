@@ -561,7 +561,7 @@ MAP_VERSION_TO_INSTALL_PYLINT: Dict[str, Dict[str, Any]] = {
     ]
 }
 
-MAP_VERSION_TO_INSTALL_PYLINT["2.15"]["pre_test"] = ["pip install -e ."]
+MAP_VERSION_TO_INSTALL_PYLINT["2.15"]["pre_test"] = ["pip install --no-build-isolation -e ."]
 
 MAP_VERSION_TO_INSTALL_PYLINT.update(
     {
@@ -895,7 +895,7 @@ NON_TEST_EXTS: List[str] = [
     ".yaml",
     ".toml",
 ]
-SWE_BENCH_URL_RAW: str = "https://raw.githubusercontent.com/"
+SWE_BENCH_URL_RAW: str = "https://gitclone.com/raw.githubusercontent.com/"
 
 
 MUTATION_TEMPLATE: str = """[cosmic-ray]

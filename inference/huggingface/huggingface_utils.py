@@ -2,6 +2,7 @@ import json
 import math
 import warnings
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -140,15 +141,27 @@ def complete_code(
                         )
 
         else:
+            output_path = Path(output_file)
+            generation_path = output_path.with_name(
+                output_path.stem.removesuffix("__raw") + "__generations.jsonl"
+            )
             for step, batch in tqdm(enumerate(dataloader), total=total):
-                inputs = batch["ids"][:, : batch["input_len"]].tolist()
+                inputs = [
+                    token_ids[: int(input_len)].tolist()
+                    for token_ids, input_len in zip(batch["ids"], batch["input_len"])
+                ]
 
                 outputs = model.generate(
-                    prompt_token_ids=inputs,
+                    prompts=[{"prompt_token_ids": token_ids} for token_ids in inputs],
                     sampling_params=sampling_params,
                     use_tqdm=False,
                 )
-                generated_texts = [o.text for o in outputs[0].outputs]
+                if len(outputs) != len(inputs) or any(
+                    len(output.outputs) != num_samples for output in outputs
+                ):
+                    raise ValueError("vLLM returned an unexpected number of predictions")
+                completions = [completion for output in outputs for completion in output.outputs]
+                generated_texts = [completion.text for completion in completions]
 
                 generated_instance_ids = (
                     np.array(batch["instance_id"]).repeat(num_samples).tolist()
@@ -159,21 +172,48 @@ def complete_code(
                 )
                 prompts = np.array(batch["prompt"]).repeat(num_samples).tolist()
 
+                # Save every returned candidate before the strict upstream
+                # postprocessor can replace text with a sentinel or raise.
+                with generation_path.open("a", encoding="utf-8") as generation_f:
+                    for index, (instance_id, curr_id, setting, completion) in enumerate(zip(
+                        generated_instance_ids, generated_ids, generated_settings, completions,
+                    )):
+                        token_ids = getattr(completion, "token_ids", None)
+                        generation_f.write(json.dumps({
+                            "instance_id": instance_id,
+                            "id": curr_id,
+                            "setting": setting,
+                            "candidate_index": index % num_samples,
+                            "raw_text": completion.text,
+                            "prompt_tokens": len(inputs[index // num_samples]),
+                            "max_output_tokens": getattr(sampling_params, "max_tokens", None),
+                            "finish_reason": getattr(completion, "finish_reason", None),
+                            "stop_reason": getattr(completion, "stop_reason", None),
+                            "generated_tokens": len(token_ids) if token_ids is not None else None,
+                        }, ensure_ascii=False) + "\n")
+
                 # Write prompts to the separate prompt file
                 for prompt, setting, curr_id in zip(
                     prompts, generated_settings, generated_ids
                 ):
                     prompt_data = {"id": curr_id, "setting": setting, "prompt": prompt}
                     prompt_f.write(json.dumps(prompt_data) + "\n")
+                prompt_f.flush()
 
                 # Write predictions to the separate prediction file
-                for instance_id, curr_id, setting, text in zip(
+                for index, (instance_id, curr_id, setting, text) in enumerate(zip(
                     generated_instance_ids,
                     generated_ids,
                     generated_settings,
                     generated_texts,
-                ):
+                )):
                     text_processed = postprocess_fn(text, is_full)
+                    postprocessing_error = {
+                        "compilation error": "missing_code_fence",
+                        "this does not compile": "no_function_extracted",
+                    }.get(text_processed)
+                    if not text_processed.strip():
+                        postprocessing_error = "empty_output"
                     pred_f.write(
                         json.dumps(
                             {
@@ -181,7 +221,10 @@ def complete_code(
                                 "id": curr_id,
                                 "setting": setting,
                                 "pred": text_processed,
+                                "candidate_index": index % num_samples,
+                                "postprocessing_error": postprocessing_error,
                             }
                         )
                         + "\n"
                     )
+                    pred_f.flush()

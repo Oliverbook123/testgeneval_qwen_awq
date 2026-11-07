@@ -14,7 +14,9 @@ RUN pip install -r requirements.txt
 RUN pip install pytest
 RUN pip install coverage cosmic-ray
 
-RUN pip install -e .
+# The project's setuptools 62.6 backend predates PEP 660 editable support.
+RUN pip install setuptools==68.0.0 wheel==0.37.1
+RUN pip install --no-build-isolation -e .
 
 
 RUN git checkout e90702074e68e20dc8e5df5013ee3ecf22139c3e .

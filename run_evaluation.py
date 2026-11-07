@@ -15,6 +15,7 @@ from swebench_docker.constants import (
     MAP_REPO_TO_TEST_FRAMEWORK,
 )
 from swebench_docker.run_docker import run_docker_evaluation
+from swebench_docker.evaluation_status import evaluation_is_complete
 from swebench_docker.swebench_utils import get_instances, get_test_directives
 from swebench_docker.utils import get_eval_refs
 
@@ -70,7 +71,7 @@ async def main(
         swe_bench_tasks (str): Path to the SWE-bench tasks file OR HF dataset name.
         namespace (str): Docker repository namespace.
         log_dir (str): Path to the directory where logs will be saved.
-        skip_existing (bool): Whether to skip evaluations for predictions that already have logs.
+        skip_existing (bool): Whether to skip settings with verified completed evaluations.
         timeout (int): Timeout for each evaluation.
         num_processes (int): Number of processes to run in parallel (-1 = unlimited)
 
@@ -100,29 +101,31 @@ async def main(
         logger.info("No predictions to evaluate")
         return
 
-    # Remove predictions that have already been evaluated
+    # A log may exist for an interrupted or failed container. Only skip settings
+    # whose completion record still matches their evaluation log.
     if skip_existing:
-        # Skip logs that already exist
         predictions_filtered = []
+        completed_settings = 0
         for p in predictions:
-            all_exist = True
             if KEY_PREDICTIONS not in p:
                 continue
-            for setting in p[KEY_PREDICTIONS]:
-                log_file_name = f"{p[KEY_ID]}.{p[KEY_MODEL]}.{setting}.eval.log"
-                log_file = os.path.join(log_dir, log_file_name)
-                if not os.path.exists(log_file):
-                    all_exist = False
-                    break
-            if not all_exist:
-                predictions_filtered.append(p)
+            pending_settings = {
+                setting: values
+                for setting, values in p[KEY_PREDICTIONS].items()
+                if not evaluation_is_complete(log_dir, p[KEY_ID], p[KEY_MODEL], setting)
+            }
+            completed_settings += len(p[KEY_PREDICTIONS]) - len(pending_settings)
+            if pending_settings:
+                predictions_filtered.append({**p, KEY_PREDICTIONS: pending_settings})
         if len(predictions_filtered) == 0:
-            logger.info(f"All predictions already exist, skipping")
+            logger.info("All %s settings have completed evaluations, skipping", completed_settings)
             return
         else:
             logger.info(
-                f"# of predictions to evaluate: {len(predictions_filtered)} "
-                + f"({len(predictions) - len(predictions_filtered)} already evaluated)"
+                "Resuming %s settings across %s samples (%s settings already completed)",
+                sum(len(p[KEY_PREDICTIONS]) for p in predictions_filtered),
+                len(predictions_filtered),
+                completed_settings,
             )
             predictions = predictions_filtered
     else:
@@ -161,29 +164,46 @@ async def main(
 
     sem = asyncio.Semaphore(num_processes if num_processes > 0 else len(task_instances))
     tasks = []
+    scheduled_settings = []
+
+    async def run_docker_throttled(task_instance, setting):
+        async with sem:
+            return await run_docker_evaluation(
+                task_instance,
+                namespace,
+                log_dir,
+                setting,
+                ind=0,
+                timeout=timeout,
+                only_baseline=False,
+                skip_mutation=skip_mutation,
+            )
+
     for task_instance in task_instances:
         if task_instance[KEY_PREDICTIONS]:
-
-            async def run_docker_throttled(*args, **kwargs):
-                async with sem:
-                    return await run_docker_evaluation(
-                        *args,
-                        **kwargs,
-                        only_baseline=False,
-                        skip_mutation=skip_mutation,
-                    )
-
             for setting in task_instance[KEY_PREDICTIONS]:
                 task = asyncio.create_task(
-                    run_docker_throttled(
-                        task_instance, namespace, log_dir, setting, timeout
-                    )
+                    run_docker_throttled(task_instance, setting)
                 )
                 tasks.append(task)
+                scheduled_settings.append((task_instance[KEY_ID], setting))
         else:
             logger.info(f"[{task_instance[KEY_ID]}] No prediction found.")
 
-    await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    failures = [
+        (task_id, setting, result)
+        for (task_id, setting), result in zip(scheduled_settings, results)
+        if result is not True
+    ]
+    if failures:
+        for task_id, setting, result in failures:
+            logger.error("Evaluation did not complete: [%s][%s] %s", task_id, setting, result)
+        raise RuntimeError(
+            f"{len(failures)} evaluation settings failed to complete; "
+            "completed settings are saved and failed settings can be resumed."
+        )
+    logger.info("Completed all %s pending evaluation settings", len(results))
 
 
 if __name__ == "__main__":
@@ -208,7 +228,7 @@ if __name__ == "__main__":
         default="aorwall",
     )
     parser.add_argument(
-        "--skip_existing", action="store_true", help="(Optional) Skip existing logs"
+        "--skip_existing", action="store_true", help="(Optional) Skip verified completed settings"
     )
     parser.add_argument(
         "--timeout",

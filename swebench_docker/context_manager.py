@@ -179,12 +179,47 @@ class TaskEnvContextManager:
             self.log.write("NEW COMMANDS: " + commands)
             # Set the modified commands back to the config
             config.set("testenv", "commands", commands)
+            self._pin_legacy_sphinx_setuptools(config)
 
             # Write the changes back to the tox.ini file
             with open(config_file, "w") as configfile:
                 config.write(configfile)
             self.log.write(f"Coverage added to {config_file}\n")
             self.log.write(commands)
+
+    def _pin_legacy_sphinx_setuptools(self, config):
+        """Keep pkg_resources available inside the legacy Sphinx tox envs.
+
+        Installing setuptools in the outer Conda environment does not constrain
+        tox's newly created test environments. Sphinx 3.2/3.5 testing plugins
+        still import pkg_resources, which setuptools removed in version 82.
+        Existing requirements remain in place so pip resolves their intersection
+        with this compatibility upper bound.
+        """
+        if (
+            self.instance.get("repo") != "sphinx-doc/sphinx"
+            or self.instance.get("version") not in {"3.2", "3.5"}
+        ):
+            return
+
+        compatibility_requirement = "setuptools<82"
+        for section in config.sections():
+            if section != "testenv" and not section.startswith("testenv:"):
+                continue
+            if section != "testenv" and not config.has_option(section, "deps"):
+                # These environments inherit the constrained base deps.
+                continue
+            deps = config.get(section, "deps", raw=True, fallback="")
+            if section != "testenv" and "{[testenv]deps}" in deps:
+                continue
+            normalized = {
+                line.strip().replace(" ", "").lower()
+                for line in deps.splitlines()
+            }
+            if compatibility_requirement not in normalized:
+                config.set(
+                    section, "deps", deps.rstrip() + "\n" + compatibility_requirement
+                )
 
     def __enter__(self):
         """

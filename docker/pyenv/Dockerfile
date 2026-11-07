@@ -2,6 +2,10 @@ FROM debian:bookworm-slim
 
 ENV PYENV_ROOT="/opt/pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"
+ENV PYTHON_BUILD_MIRROR_URL="https://mirrors.huaweicloud.com/python"
+ENV PYTHON_BUILD_CACHE_PATH="/tmp/python-build-cache"
+ENV PYTHON_BUILD_HTTP_CLIENT="curl"
+ENV PYTHON_BUILD_CURL_OPTS="--retry 5 --retry-delay 5 --retry-all-errors"
 
 RUN apt-get update --quiet && \
     apt-get install --yes --no-install-recommends \
@@ -33,8 +37,11 @@ RUN apt-get update --quiet && \
         zlib1g-dev && \
     rm -rf /var/lib/apt/lists/*_dists_*
 
-RUN curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash && \
-    pyenv update
+RUN git clone https://github.com/pyenv/pyenv.git "${PYENV_ROOT}" && \
+    mkdir -p "${PYENV_ROOT}/plugins" && \
+    git clone https://github.com/pyenv/pyenv-update.git \
+        "${PYENV_ROOT}/plugins/pyenv-update" && \
+    pyenv --version
 
 WORKDIR /opt
 RUN mkdir /opt/logs

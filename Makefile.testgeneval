@@ -1,3 +1,5 @@
+.NOTPARALLEL:
+
 all: \
 	docker/.Dockerfile.stamp \
 	docker/pyenv/.Dockerfile.stamp \

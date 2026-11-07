@@ -2,6 +2,12 @@
 
 FROM aorwall/swe-bench-pytest-dev_pytest:bookworm-slim
 
+RUN git -c http.version=HTTP/1.1 \
+    -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 \
+    fetch --depth=1 --no-tags --no-recurse-submodules \
+    https://gitee.com/mirrors/pytest.git \
+    10056865d2a4784934ce043908a0e78d0578f677
+
 RUN git -c advice.detachedHead=false checkout 10056865d2a4784934ce043908a0e78d0578f677
 
 RUN conda create -n pytest-dev__pytest__8.0 python=3.9  -y

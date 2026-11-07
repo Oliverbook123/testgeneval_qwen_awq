@@ -4,8 +4,12 @@ FROM aorwall/swe-bench-conda:bookworm-slim
 
 
 
-RUN git clone https://github.com/swe-bench/mwaskom__seaborn.git
+RUN git -c http.version=HTTP/1.1 \
+    -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 clone --progress \
+    https://gitee.com/mirrors/seaborn.git mwaskom__seaborn
 
 WORKDIR /home/swe-bench/mwaskom__seaborn
 
 ENV REPO_DIR=/home/swe-bench/mwaskom__seaborn
+
+COPY --chown=swe-bench:swe-bench docker/condarc /home/swe-bench/.condarc

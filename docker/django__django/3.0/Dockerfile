@@ -14,6 +14,9 @@ WORKDIR /opt/django__django
 
 RUN git -c advice.detachedHead=false checkout 419a78300f7cd27611196e1e464d50fd0385ff27
 
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+
 COPY docker/django__django/3.0/requirements.txt .
 
 RUN pip install -r requirements.txt

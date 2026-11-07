@@ -11,6 +11,7 @@ from typing import Callable, Dict, Optional, Tuple
 from swebench_docker.constants import (
     INSTALL_FAIL,
     KEY_ID,
+    KEY_PREDICTIONS,
     NON_TEST_EXTS,
     RESET_FAILED,
     TESTS_CONFIG,
@@ -496,7 +497,7 @@ def get_model_report(
         log_dir (str): path to directory of evaluation logs
         verbose (bool): show tqdm to track progress
     Returns:
-        report_map (dict): map of repo to report
+        report_map (dict): diagnostic categories containing unique sample IDs.
     """
     from tqdm import tqdm
 
@@ -523,33 +524,45 @@ def get_model_report(
         "test_timeout": [],
         "mutation_timeout": [],
     }
+    seen = {category: set() for category in report_map}
+
+    def add_sample(category, sample_id):
+        if sample_id not in seen[category]:
+            report_map[category].append(sample_id)
+            seen[category].add(sample_id)
+
     for p in tqdm(predictions, desc="Processing predictions new", disable=not verbose):
-        report_map["generated"].append(p[KEY_ID])
+        sample_id = p[KEY_ID]
+        add_sample("generated", sample_id)
 
-        # Get log file
-        log_path = os.path.join(log_dir, f"{p[KEY_ID]}.{model}.eval.log")
-        if not os.path.exists(log_path):
+        # Each setting runs in its own container and writes a separate log.
+        # Only use the legacy aggregate filename when no setting logs exist,
+        # so a stale aggregate cannot introduce errors from an earlier run.
+        log_paths = [
+            os.path.join(log_dir, f"{sample_id}.{model}.{setting}.eval.log")
+            for setting in p.get(KEY_PREDICTIONS, {})
+        ]
+        log_paths = [path for path in log_paths if os.path.isfile(path)]
+        if not log_paths:
+            legacy_path = os.path.join(log_dir, f"{sample_id}.{model}.eval.log")
+            if os.path.isfile(legacy_path):
+                log_paths = [legacy_path]
+        if not log_paths:
             continue
-        report_map["with_logs"].append(p[KEY_ID])
-        log_content = open(log_path).read()
+        add_sample("with_logs", sample_id)
 
-        # Check if there is a reset failure
-        if RESET_FAILED in log_content:
-            report_map["reset_failed"].append(p[KEY_ID])
-            continue
-
-        # Get evaluation logs
-        eval_sm = get_logs_eval(log_path)
-
-        # Check if any tests errored or timed out
-        for status in [
-            ("test_errored", TESTS_ERROR),
-            ("test_timeout", TESTS_TIMEOUT),
-            ("mutation_timeout", "MutationTimeout"),
-        ]:
-            if status[1] in log_content:
-                report_map[status[0]].append(p[KEY_ID])
-                continue
+        for log_path in log_paths:
+            with open(log_path, encoding="utf-8", errors="replace") as log_file:
+                log_content = log_file.read()
+            for category, marker in [
+                ("install_fail", INSTALL_FAIL),
+                ("reset_failed", RESET_FAILED),
+                ("test_errored", TESTS_ERROR),
+                ("test_timeout", TESTS_TIMEOUT),
+                ("mutation_timeout", "MutationTimeout"),
+            ]:
+                if marker in log_content:
+                    add_sample(category, sample_id)
 
     return report_map
 

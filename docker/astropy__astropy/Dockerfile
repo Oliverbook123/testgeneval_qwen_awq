@@ -4,8 +4,12 @@ FROM aorwall/swe-bench-conda:bookworm-slim
 
 
 
-RUN git clone https://github.com/swe-bench/astropy__astropy.git
+RUN git -c http.version=HTTP/1.1 \
+    -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 clone --progress \
+    https://gitee.com/mirrors/astropy.git astropy__astropy
 
 WORKDIR /home/swe-bench/astropy__astropy
 
 ENV REPO_DIR=/home/swe-bench/astropy__astropy
+
+COPY --chown=swe-bench:swe-bench docker/condarc /home/swe-bench/.condarc

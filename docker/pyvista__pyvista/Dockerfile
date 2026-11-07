@@ -13,7 +13,7 @@ RUN apt-get update && \
 USER swe-bench
 
 
-RUN git clone https://github.com/swe-bench/pyvista__pyvista.git
+RUN git clone https://gitclone.com/github.com/swe-bench/pyvista__pyvista.git
 
 WORKDIR /home/swe-bench/pyvista__pyvista
 

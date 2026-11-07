@@ -2,11 +2,22 @@
 
 FROM aorwall/swe-bench-pyenv:bookworm-slim
 
+COPY docker/git-clone-fallback.sh /usr/local/bin/git-clone-fallback
+RUN chmod +x /usr/local/bin/git-clone-fallback
+
 COPY --from=aorwall/swe-bench-pyenvs:bookworm-slim /opt/pyenv/versions/3.11.9 /opt/pyenv/versions/3.11.9
 
 
 
 WORKDIR /opt
 
-RUN git clone https://github.com/swe-bench/django__django.git
+RUN git-clone-fallback \
+    swe-bench/django__django.git \
+    django__django \
+    https://mirrors.tuna.tsinghua.edu.cn/git/github.com \
+    https://bgithub.xyz/https://github.com \
+    https://gitclone.com/github.com \
+    https://github.ur1.fun/https://github.com \
+    https://gitee.com/mirrors \
+    https://github.com
 ENV REPO_DIR=/opt/django__django
